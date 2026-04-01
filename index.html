@@ -99,12 +99,12 @@
             </select>
             
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="studentName" placeholder="Họ và Tên học viên" class="form-control" style="flex: 2;">
-                <input type="text" id="studentDOB" placeholder="Ngày sinh" class="form-control" style="flex: 1.5;">
+                <input type="text" id="studentName" placeholder="Họ và Tên học viên" class="form-control" style="flex: 2; text-transform: uppercase;">
+                <input type="text" id="studentDOB" placeholder="Ngày/tháng/năm sinh" class="form-control" style="flex: 1.5;">
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <input type="text" id="khoaThi" value="THÁNG 4/2026" class="form-control" style="flex: 1.5; background: #eee; font-weight: bold;" readonly>
+                <input type="text" id="khoaThi" value="Tháng 4/2026" class="form-control" style="flex: 1.5; background: #eee; font-weight: bold;" readonly>
                 <input type="password" id="maThi" placeholder="Mã thi (Mật khẩu)" class="form-control" style="flex: 1;">
             </div>
 
@@ -133,7 +133,7 @@
             <div class="result-header">KẾT QUẢ SÁT HẠCH</div>
             <div style="margin-bottom: 20px; font-size: 1.1rem; line-height: 1.6;">
                 Học viên: <b id="res-name" style="color: var(--caee-blue);">---</b><br>
-                Mã lớp: <b id="res-id">---</b>
+                Khóa thi: <b id="res-id">---</b>
             </div>
             <div class="score-circle">
                 <span id="res-score">0</span>
@@ -143,18 +143,17 @@
             <div class="notice-text">
                 KẾT QUẢ NÀY ĐƯỢC NHÀ TRƯỜNG LƯU LẠI VÀ DÙNG ĐỂ XÉT CẤP CHỨNG CHỈ SƠ CẤP NGHỀ.
             </div>
-            <p style="margin-top: 25px; color: #666; font-size: 0.85rem;">Hệ thống tự đóng sau <span id="countdown">8</span> giây...</p>
+            <p style="margin-top: 25px; color: #666; font-size: 0.85rem;">Hệ thống tự đóng sau <span id="countdown">10</span> giây...</p>
         </div>
     </div>
 
 <script>
     const BASE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7h1KNottkL2N-DEBjkUVVlXLblXy25_x1UhqML8WQz3AWeWeXFuvkSQUb4Sxv5eaK5T-VJQEWh4wB/pub?output=csv&gid=";
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwbyc9MfwTh2KH-fVRQ-EwTR0mN6wEFuBYMEagMwsgTq3IaIfEHdfGSTvcK2SYSxpg3/exec";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby_Fup4gBHOzuDDX5L_ZptZCQHeig8-BCRPrBVVpuKkqYPbQIhsijtUJFiG1dcWAHKK/exec";
 
     let allQuestions = [], selectedQuestions = [], studentAnswers = [];
     let currentQuestionIndex = 0, timeLeft = 1200, timerInterval, isSubmitted = false, cheatCount = 0;
 
-    // --- Bảo mật chống chuyển tab ---
     window.onblur = () => { 
         if(!isSubmitted && selectedQuestions.length > 0) { 
             cheatCount++; 
@@ -164,9 +163,13 @@
     };
     window.onfocus = () => { document.getElementById('warning-overlay').style.display = 'none'; };
 
-    // --- KIỂM TRA MẬT KHẨU TRƯỚC KHI VÀO THI ---
+    // --- KIỂM TRA MẬT KHẨU VÀ CHUẨN HÓA TÊN ---
     async function validateAndStart() {
-        const name = document.getElementById('studentName').value.trim();
+        // Cập nhật: Tự động viết in hoa tên khi lấy giá trị
+        const nameInput = document.getElementById('studentName');
+        const name = nameInput.value.trim().toUpperCase();
+        nameInput.value = name; // Cập nhật lại vào ô nhập liệu để hiển thị đẹp
+
         const dob = document.getElementById('studentDOB').value.trim();
         const maThi = document.getElementById('maThi').value.trim();
         const btn = document.getElementById('btnStart');
@@ -195,7 +198,7 @@
     }
 
     async function startQuiz() {
-        const name = document.getElementById('studentName').value.trim();
+        const name = document.getElementById('studentName').value.trim().toUpperCase();
         const dob = document.getElementById('studentDOB').value.trim();
         const gid = document.getElementById('jobType').value;
         const jobName = document.getElementById('jobType').options[document.getElementById('jobType').selectedIndex].text;
@@ -212,7 +215,7 @@
 
                 if(allQuestions.length < 30) return alert("Dữ liệu nguồn không đủ 30 câu hỏi!");
 
-                document.getElementById('display-name').innerText = name.toUpperCase() + " (" + dob + ")";
+                document.getElementById('display-name').innerText = name + " (" + dob + ")";
                 document.getElementById('job-display-header').innerText = jobName;
                 selectedQuestions = allQuestions.sort(() => 0.5 - Math.random()).slice(0, 30);
                 
@@ -297,14 +300,15 @@
         selectedQuestions.forEach((q, i) => {
             const ans = studentAnswers.find(a => a.qIndex === i);
             if (ans) {
-                const idx = q.options.indexOf(ans.selected);
-                if (idx !== -1 && labels[idx] === q.answer) score++;
+                const optIdx = q.options.indexOf(ans.selected);
+                if (optIdx !== -1 && labels[optIdx] === q.answer) score++;
             }
         });
 
         const status = score >= 25 ? "ĐẠT" : "KHÔNG ĐẠT";
+        const studentNameUpper = document.getElementById('studentName').value.toUpperCase();
         
-        document.getElementById('res-name').innerText = document.getElementById('studentName').value.toUpperCase();
+        document.getElementById('res-name').innerText = studentNameUpper;
         document.getElementById('res-id').innerText = document.getElementById('khoaThi').value;
         document.getElementById('res-score').innerText = score;
         const badge = document.getElementById('res-badge');
@@ -315,13 +319,13 @@
         document.getElementById('caee-header').style.display = 'none';
         document.getElementById('result-screen').style.display = 'flex';
 
-        // Gửi dữ liệu về Apps Script
+        // Gửi dữ liệu về Apps Script (Đảm bảo đồng bộ in hoa với sheet DIEM3NGHE)
         const formData = new URLSearchParams();
-        formData.append('name', document.getElementById('studentName').value);
+        formData.append('name', studentNameUpper);
         formData.append('birthDate', document.getElementById('studentDOB').value);
         formData.append('khoaThi', document.getElementById('khoaThi').value);
         formData.append('maThi', document.getElementById('maThi').value);
-        formData.append('jobName', document.getElementById('job-display-header').innerText);
+        formData.append('jobName', document.getElementById('job-display-header').innerText.toUpperCase());
         formData.append('score', score);
         formData.append('status', status);
         formData.append('mode', document.getElementById('modeToggle').checked ? "ONTAP" : "THI");
@@ -329,7 +333,7 @@
 
         fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: formData });
 
-        let count = 8;
+        let count = 10;
         const countInt = setInterval(() => {
             count--;
             document.getElementById('countdown').innerText = count;
