@@ -99,16 +99,13 @@
             </select>
             
             <div style="display: flex; gap: 10px;">
-                <div style="flex: 2;">
-                    <input type="text" id="studentName" placeholder="Họ và Tên học viên" class="form-control">
-                </div>
-                <div style="flex: 1.5;">
-                    <input type="text" id="studentDOB" placeholder="Ngày sinh" class="form-control">
-                </div>
+                <input type="text" id="studentName" placeholder="Họ và Tên học viên" class="form-control" style="flex: 2;">
+                <input type="text" id="studentDOB" placeholder="Ngày sinh" class="form-control" style="flex: 1.5;">
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <input type="text" id="examCode" placeholder="Nhập mã lớp (VD: K01)" class="form-control" style="text-transform: uppercase;">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" id="khoaThi" value="THÁNG 4/2026" class="form-control" style="flex: 1.5; background: #eee; font-weight: bold;" readonly>
+                <input type="password" id="maThi" placeholder="Mã thi (Mật khẩu)" class="form-control" style="flex: 1;">
             </div>
 
             <div style="display:flex; align-items:center; margin: 15px 0; justify-content: center; gap:10px;">
@@ -116,7 +113,7 @@
                 <label for="modeToggle" style="cursor:pointer; font-weight: 600;">Chế độ Ôn tập (Hiện giải thích)</label>
             </div>
 
-            <button class="btn-start" onclick="startQuiz()">VÀO THI NGAY ➔</button>
+            <button class="btn-start" id="btnStart" onclick="validateAndStart()">VÀO THI NGAY ➔</button>
         </div>
     </div>
 
@@ -152,7 +149,7 @@
 
 <script>
     const BASE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7h1KNottkL2N-DEBjkUVVlXLblXy25_x1UhqML8WQz3AWeWeXFuvkSQUb4Sxv5eaK5T-VJQEWh4wB/pub?output=csv&gid=";
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby1SCsvUC7KdaZoehrFefbKzdqfLhZSz40Z0gCV3a7qnF_8vtRb_2ENwkfSusc0LXZ3/exec";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwbyc9MfwTh2KH-fVRQ-EwTR0mN6wEFuBYMEagMwsgTq3IaIfEHdfGSTvcK2SYSxpg3/exec";
 
     let allQuestions = [], selectedQuestions = [], studentAnswers = [];
     let currentQuestionIndex = 0, timeLeft = 1200, timerInterval, isSubmitted = false, cheatCount = 0;
@@ -167,15 +164,42 @@
     };
     window.onfocus = () => { document.getElementById('warning-overlay').style.display = 'none'; };
 
+    // --- KIỂM TRA MẬT KHẨU TRƯỚC KHI VÀO THI ---
+    async function validateAndStart() {
+        const name = document.getElementById('studentName').value.trim();
+        const dob = document.getElementById('studentDOB').value.trim();
+        const maThi = document.getElementById('maThi').value.trim();
+        const btn = document.getElementById('btnStart');
+
+        if (!name || !dob || !maThi) return alert("Vui lòng nhập đầy đủ thông tin: Họ tên, Ngày sinh và Mã thi!");
+
+        btn.disabled = true;
+        btn.innerText = "ĐANG KIỂM TRA MÃ...";
+
+        try {
+            const response = await fetch(`${WEB_APP_URL}?action=checkCode&code=${maThi}`);
+            const result = await response.json();
+
+            if (result.isValid) {
+                startQuiz();
+            } else {
+                alert("Mã thi (Mật khẩu) không chính xác!");
+                btn.disabled = false;
+                btn.innerText = "VÀO THI NGAY ➔";
+            }
+        } catch (e) {
+            alert("Lỗi kết nối máy chủ! Vui lòng thử lại.");
+            btn.disabled = false;
+            btn.innerText = "VÀO THI NGAY ➔";
+        }
+    }
+
     async function startQuiz() {
         const name = document.getElementById('studentName').value.trim();
         const dob = document.getElementById('studentDOB').value.trim();
-        const code = document.getElementById('examCode').value.trim().toUpperCase();
         const gid = document.getElementById('jobType').value;
         const jobName = document.getElementById('jobType').options[document.getElementById('jobType').selectedIndex].text;
         
-        if(!name || !dob || !code) return alert("Vui lòng nhập đầy đủ thông tin: Họ tên, Ngày sinh và Mã lớp!");
-
         Papa.parse(BASE_CSV_URL + gid, {
             download: true, header: true, skipEmptyLines: true,
             complete: function(results) {
@@ -280,9 +304,8 @@
 
         const status = score >= 25 ? "ĐẠT" : "KHÔNG ĐẠT";
         
-        // Cập nhật màn hình kết quả
-        document.getElementById('res-name').innerText = document.getElementById('studentName').value.toUpperCase() + " (" + document.getElementById('studentDOB').value + ")";
-        document.getElementById('res-id').innerText = document.getElementById('examCode').value.toUpperCase();
+        document.getElementById('res-name').innerText = document.getElementById('studentName').value.toUpperCase();
+        document.getElementById('res-id').innerText = document.getElementById('khoaThi').value;
         document.getElementById('res-score').innerText = score;
         const badge = document.getElementById('res-badge');
         badge.innerText = status;
@@ -292,10 +315,12 @@
         document.getElementById('caee-header').style.display = 'none';
         document.getElementById('result-screen').style.display = 'flex';
 
-        // Gửi dữ liệu về Google Sheets thông qua Apps Script
+        // Gửi dữ liệu về Apps Script
         const formData = new URLSearchParams();
-        formData.append('name', document.getElementById('studentName').value + " (" + document.getElementById('studentDOB').value + ")");
-        formData.append('studentID', document.getElementById('examCode').value.toUpperCase());
+        formData.append('name', document.getElementById('studentName').value);
+        formData.append('birthDate', document.getElementById('studentDOB').value);
+        formData.append('khoaThi', document.getElementById('khoaThi').value);
+        formData.append('maThi', document.getElementById('maThi').value);
         formData.append('jobName', document.getElementById('job-display-header').innerText);
         formData.append('score', score);
         formData.append('status', status);
@@ -304,7 +329,6 @@
 
         fetch(WEB_APP_URL, { method: "POST", mode: "no-cors", body: formData });
 
-        // Đếm ngược tự động tải lại
         let count = 8;
         const countInt = setInterval(() => {
             count--;
